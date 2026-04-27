@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { redirect } from 'next/navigation'
 import { createServiceClient } from '@/lib/supabase/server'
 import { DEFAULT_GM_CONFIG } from '@/lib/gm-engine'
 import type { GmConfig, GmSavedScenario, Quote } from '@/lib/types'
@@ -107,6 +108,13 @@ export default async function AdminGmPage({
 }: {
   searchParams?: { quoteId?: string }
 }) {
+  const main = String(process.env.NEXT_PUBLIC_MAIN_CALC_ORIGIN || '')
+    .trim()
+    .replace(/\/$/, '')
+  if (main) {
+    redirect(`${main}/admin.html`)
+  }
+
   const quoteId = searchParams?.quoteId ?? null
 
   // Fetch the three data sources independently so a failure in one

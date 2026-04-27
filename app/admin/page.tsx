@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { redirect } from 'next/navigation'
 import { createServiceClient } from '@/lib/supabase/server'
 import AdminDashboardClient from './AdminDashboardClient'
 import PricingGuideUpload from './PricingGuideUpload'
@@ -28,6 +29,13 @@ function mapRow(row: Record<string, unknown>): Quote {
 }
 
 export default async function AdminPage() {
+  const main = String(process.env.NEXT_PUBLIC_MAIN_CALC_ORIGIN || '')
+    .trim()
+    .replace(/\/$/, '')
+  if (main) {
+    redirect(`${main}/admin.html`)
+  }
+
   // Query directly with the service-role client — bypasses RLS so ALL sellers'
   // quotes are returned. The admin layout already ensures only admins reach here.
   const supabase = createServiceClient()

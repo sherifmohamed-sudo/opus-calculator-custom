@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { redirect } from 'next/navigation'
 import { createServiceClient } from '@/lib/supabase/server'
 import { DEFAULT_PRICING_CONFIG } from '@/lib/pricing-engine'
 import { DEFAULT_GM_CONFIG } from '@/lib/gm-engine'
@@ -51,6 +52,13 @@ async function fetchConfigs(): Promise<{
 }
 
 export default async function AdminPricingPage() {
+  const main = String(process.env.NEXT_PUBLIC_MAIN_CALC_ORIGIN || '')
+    .trim()
+    .replace(/\/$/, '')
+  if (main) {
+    redirect(`${main}/admin.html`)
+  }
+
   const { config, gmConfig, updatedAt, updatedBy } = await fetchConfigs()
 
   const lastSaved =

@@ -1,12 +1,54 @@
-import { redirect } from 'next/navigation'
-import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
+import { createClient } from '@/lib/supabase/server'
+
+function mainQuotesUrl(): string {
+  const o = String(process.env.NEXT_PUBLIC_MAIN_CALC_ORIGIN || '')
+    .trim()
+    .replace(/\/$/, '')
+  if (!o) return '/quotes'
+  return `${o}/quotes.html`
+}
 
 async function NavBar() {
   const supabase = createClient()
   const { data: { session } } = await supabase.auth.getSession()
 
-  if (!session) return null
+  if (!session) {
+    const quotesHref = mainQuotesUrl()
+    return (
+      <nav className="border-b border-gray-100 bg-white">
+        <div className="mx-auto max-w-screen-xl px-4 sm:px-6">
+          <div className="flex h-12 items-center justify-between">
+            <div className="flex items-center gap-5">
+              <Link href="/calculator" className="flex items-center gap-2.5">
+                <img src="/OpusLogo.png" alt="Opus" className="h-6 w-auto" />
+              </Link>
+              <div className="hidden sm:flex items-center gap-1">
+                <Link
+                  href="/calculator/pricing-guide"
+                  className="px-3 py-1.5 text-xs font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-md transition-colors"
+                >
+                  Pricing Guide
+                </Link>
+                <Link
+                  href="/calculator"
+                  className="px-3 py-1.5 text-xs font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-md transition-colors"
+                >
+                  Calculator
+                </Link>
+                <a
+                  href={quotesHref}
+                  className="px-3 py-1.5 text-xs font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-md transition-colors"
+                >
+                  My Quotes
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+      </nav>
+    )
+  }
 
   const { data: profile } = await supabase
     .from('profiles')
@@ -38,12 +80,12 @@ async function NavBar() {
               >
                 Calculator
               </Link>
-              <Link
-                href="/quotes"
+              <a
+                href={mainQuotesUrl()}
                 className="px-3 py-1.5 text-xs font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-md transition-colors"
               >
                 My Quotes
-              </Link>
+              </a>
               {isAdmin && (
                 <>
                   <Link
@@ -80,13 +122,6 @@ async function NavBar() {
 }
 
 export default async function CalculatorLayout({ children }: { children: React.ReactNode }) {
-  const supabase = createClient()
-  const { data: { session } } = await supabase.auth.getSession()
-
-  if (!session) {
-    redirect('/login')
-  }
-
   return (
     <div className="min-h-screen bg-gray-50">
       <NavBar />

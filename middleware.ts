@@ -2,6 +2,20 @@ import { createServerClient } from '@supabase/ssr'
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 
+const PUBLIC_PREFIXES = [
+  '/login',
+  '/auth',
+  '/reset-password',
+  '/calculator',
+  '/quotes',
+]
+
+function isPublicPath(pathname: string) {
+  return PUBLIC_PREFIXES.some(
+    (p) => pathname === p || pathname.startsWith(`${p}/`),
+  )
+}
+
 export async function middleware(request: NextRequest) {
   let response = NextResponse.next({
     request: { headers: request.headers },
@@ -30,7 +44,7 @@ export async function middleware(request: NextRequest) {
           response.cookies.set({ name, value: '', ...options })
         },
       },
-    }
+    },
   )
 
   const {
@@ -39,14 +53,26 @@ export async function middleware(request: NextRequest) {
 
   const pathname = request.nextUrl.pathname
 
+  // Delivery calculator + quote list are public; auth is handled on the main Opus Calculator.
+  if (isPublicPath(pathname)) {
+    if (session && pathname === '/login') {
+      return NextResponse.redirect(new URL('/calculator', request.url))
+    }
+    return response
+  }
+
+  // Root: allow through (page redirects to /calculator)
+  if (pathname === '/') {
+    return response
+  }
+
   // Block sessions from non-aaico.com accounts — sign them out immediately
   if (session && !session.user.email?.toLowerCase().endsWith('@aaico.com')) {
     await supabase.auth.signOut()
     return NextResponse.redirect(new URL('/login', request.url))
   }
 
-  // Redirect unauthenticated users to /login
-  // Allow /auth (callback) and /reset-password (recovery sessions have a valid session)
+  // Everything else (e.g. /admin) still expects a session for legacy flows
   if (
     !session &&
     !pathname.startsWith('/login') &&
@@ -56,12 +82,10 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL('/login', request.url))
   }
 
-  // Redirect authenticated users away from /login (but NOT away from /reset-password)
   if (session && pathname === '/login') {
     return NextResponse.redirect(new URL('/calculator', request.url))
   }
 
-  // Protect /admin routes — verify admin role
   if (session && pathname.startsWith('/admin')) {
     const { data: profile } = await supabase
       .from('profiles')

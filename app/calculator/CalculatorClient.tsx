@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useMemo, useEffect } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useSearchParams } from 'next/navigation'
 import ModeToggle from '@/components/calculator/ModeToggle'
 import DetailedCalculator from '@/components/calculator/DetailedCalculator'
 import SimpleCalculator from '@/components/calculator/SimpleCalculator'
@@ -15,6 +15,11 @@ import type {
   PricingConfig,
 } from '@/lib/types'
 import { calculateDetailed, calculateSimple, DEFAULT_DEPLOYMENT } from '@/lib/pricing-engine'
+import {
+  getMainCalcOrigin,
+  requestAccessTokenFromOpener,
+  subscribeMainAccessToken,
+} from '@/lib/delivery-main-bridge'
 
 interface CalculatorClientProps {
   pricingConfig: PricingConfig
@@ -47,7 +52,6 @@ const DEFAULT_SIMPLE_INPUTS: SimpleInputs = {
 }
 
 export default function CalculatorClient({ pricingConfig }: CalculatorClientProps) {
-  const router       = useRouter()
   const searchParams = useSearchParams()
 
   const [mode, setMode] = useState<CalculatorMode>('detailed')
@@ -59,6 +63,13 @@ export default function CalculatorClient({ pricingConfig }: CalculatorClientProp
   const [requestedDiscount,  setRequestedDiscount]  = useState(0)
   const [successMsg,         setSuccessMsg]         = useState('')
   const [errorMsg,           setErrorMsg]           = useState('')
+  const [mainAccessToken,   setMainAccessToken]   = useState<string | null>(null)
+
+  useEffect(() => {
+    const unsub = subscribeMainAccessToken(setMainAccessToken)
+    requestAccessTokenFromOpener()
+    return unsub
+  }, [])
 
   // Handle duplicate: pre-fill inputs from sessionStorage when redirected from /quotes
   useEffect(() => {
@@ -138,15 +149,39 @@ export default function CalculatorClient({ pricingConfig }: CalculatorClientProp
       {successMsg && (
         <div className="mb-3 bg-green-50 border border-green-200 px-3 py-2.5 text-xs text-green-800">
           {successMsg}{' '}
-          <button onClick={() => router.push('/quotes')} className="underline ml-1">
-            View history →
-          </button>
+          {getMainCalcOrigin() ? (
+            <a
+              href={`${getMainCalcOrigin()}/quotes.html`}
+              className="underline ml-1"
+            >
+              Open My Quotes →
+            </a>
+          ) : null}
         </div>
       )}
 
       {errorMsg && (
         <div className="mb-3 bg-red-50 border border-red-200 px-3 py-2.5 text-xs text-red-800">
           {errorMsg}
+        </div>
+      )}
+
+      {!getMainCalcOrigin() && typeof window !== 'undefined' && !window.opener && (
+        <div className="mb-3 border border-amber-200 bg-amber-50 px-3 py-2.5 text-xs text-amber-900">
+          To save quotes to <strong>My Quotes</strong> on the main calculator, open Delivery pricing from the main calculator header while signed in.
+          (If you manage the delivery deployment, you can also set <code className="font-mono">NEXT_PUBLIC_MAIN_CALC_ORIGIN</code>.)
+        </div>
+      )}
+
+      {getMainCalcOrigin() && !mainAccessToken && typeof window !== 'undefined' && !window.opener && (
+        <div className="mb-3 border border-gray-200 bg-white px-3 py-2.5 text-xs text-gray-700">
+          To save quotes to <strong>My Quotes</strong> on the main calculator, open Delivery pricing from the Opus Calculator header while you are signed in (same browser).
+        </div>
+      )}
+
+      {getMainCalcOrigin() && !mainAccessToken && typeof window !== 'undefined' && window.opener && (
+        <div className="mb-3 border border-gray-200 bg-white px-3 py-2.5 text-xs text-gray-600">
+          Linking to your main calculator session… you can generate a quote once this message clears.
         </div>
       )}
 
@@ -232,6 +267,7 @@ export default function CalculatorClient({ pricingConfig }: CalculatorClientProp
               notes={notes}
               discount={requestedDiscount}
               disabled={!canGenerate}
+              mainAccessToken={mainAccessToken}
               onSuccess={handleSuccess}
               onError={handleError}
             />

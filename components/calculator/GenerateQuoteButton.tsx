@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import Button from '@/components/ui/Button'
 import type { CalculatorMode, DetailedInputs, SimpleInputs, CalculatorOutputs } from '@/lib/types'
+import { getSaveDeliveryQuoteUrl, getMainCalcOrigin } from '@/lib/delivery-main-bridge'
 
 interface GenerateQuoteButtonProps {
   mode: CalculatorMode
@@ -13,6 +14,8 @@ interface GenerateQuoteButtonProps {
   notes: string
   discount?: number
   disabled: boolean
+  /** Supabase access token from the main Opus Calculator (postMessage handoff). */
+  mainAccessToken: string | null
   onSuccess: (quoteRef: string, quoteId: string) => void
   onError: (message: string) => void
 }
@@ -26,6 +29,7 @@ export default function GenerateQuoteButton({
   notes,
   discount = 0,
   disabled,
+  mainAccessToken,
   onSuccess,
   onError,
 }: GenerateQuoteButtonProps) {
@@ -44,10 +48,31 @@ export default function GenerateQuoteButton({
         ? Math.max(0, engineTotal - discount)
         : engineTotal
 
-      // 1. POST the quote to the API
-      const response = await fetch('/api/quotes', {
+      const saveUrl = getSaveDeliveryQuoteUrl()
+      if (!saveUrl) {
+        throw new Error(
+          'Could not determine the main calculator URL. Open this Delivery calculator from the main calculator header, or set NEXT_PUBLIC_MAIN_CALC_ORIGIN on the delivery deployment.',
+        )
+      }
+      if (!mainAccessToken) {
+        const main = getMainCalcOrigin()
+        if (!main) {
+          throw new Error(
+            'Open this Delivery calculator from the main calculator header while signed in so it can link your session and save into My Quotes.',
+          )
+        }
+        throw new Error(
+          'No session link to the main calculator. Open Delivery pricing from the Opus Calculator header (while signed in) so your quote saves to My Quotes.',
+        )
+      }
+
+      // POST to main deployment — persists into shared `quotes` table
+      const response = await fetch(saveUrl, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${mainAccessToken}`,
+        },
         body: JSON.stringify({
           clientName,
           projectName,
@@ -101,7 +126,7 @@ export default function GenerateQuoteButton({
     <Button
       size="lg"
       onClick={handleGenerate}
-      disabled={disabled || loading}
+      disabled={disabled || loading || !mainAccessToken}
       loading={loading}
       className="w-full"
     >

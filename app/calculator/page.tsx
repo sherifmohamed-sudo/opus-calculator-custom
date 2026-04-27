@@ -1,3 +1,4 @@
+import { Suspense } from 'react'
 import { createClient } from '@/lib/supabase/server'
 import { DEFAULT_PRICING_CONFIG } from '@/lib/pricing-engine'
 import type { PricingConfig } from '@/lib/types'
@@ -23,5 +24,9 @@ async function fetchPricingConfig(): Promise<PricingConfig> {
 export default async function CalculatorPage() {
   const pricingConfig = await fetchPricingConfig()
 
-  return <CalculatorClient pricingConfig={pricingConfig} />
+  return (
+    <Suspense fallback={<div className="mx-auto max-w-screen-xl px-4 py-8 text-sm text-gray-500">Loading calculator…</div>}>
+      <CalculatorClient pricingConfig={pricingConfig} />
+    </Suspense>
+  )
 }
