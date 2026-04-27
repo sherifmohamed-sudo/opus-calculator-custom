@@ -55,7 +55,8 @@ export async function middleware(request: NextRequest) {
 
   // Delivery calculator + quote list are public; auth is handled on the main Opus Calculator.
   if (isPublicPath(pathname)) {
-    if (session && pathname === '/login') {
+    // Force single-auth: delivery /login is not used.
+    if (pathname === '/login') {
       return NextResponse.redirect(new URL('/calculator', request.url))
     }
     return response
